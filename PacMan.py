@@ -7,6 +7,15 @@ from Const import Config
 from GeneticAlgorithm import GeneticAlgorithm
 from NeuralNetwork import NeuralNetwork
 
+def decode_output_to_move(output):
+    """
+    신경망 출력값을 움직임 방향으로 변환
+    - output: 신경망의 출력값 리스트
+    """
+    moves = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+    print(f"Decoded output: {output}")  # 출력값 디버깅 로그
+    return moves[np.argmax(output)]  # 가장 큰 값의 인덱스를 움직임으로 매핑
+
 def start_game():
     """
     팩맨 게임 시작 함수
@@ -44,6 +53,7 @@ def start_game():
         "Inky": Sprites.Ghost(287, 199, "images/Inky.png"),
         "Clyde": Sprites.Ghost(287, 199, "images/Clyde.png")
     }
+
     ghost_group = pygame.sprite.Group()  # 유령 스프라이트 그룹 생성
     for ghost in ghosts.values():
         ghost_group.add(ghost)  # 유령 그룹에 추가
@@ -77,9 +87,9 @@ def start_game():
     output_size = 4  # 출력: UP, DOWN, LEFT, RIGHT
     network = NeuralNetwork(input_size, output_size)  # 신경망 생성
     ga = GeneticAlgorithm(  # 유전 알고리즘 생성
-        population_size=16,
+        population_size=2,
         mutation_rate=0.2,
-        generations=10,
+        generations=1,
         network=network
     )
 
@@ -90,8 +100,13 @@ def start_game():
     print("Best Genes:", best_genes)  # 학습된 최적 유전자 출력
 
     # 학습된 유전자 저장
-    np.save('GA1.npy', np.array(best_genes))
+    np.save(Config.filename, np.array(best_genes))
     print("학습된 모델이 'GA.npy' 파일로 저장")
+
+    # 1. 학습된 가중치 로드
+    best_genes = np.load(Config.filename)
+    network.set_weights(best_genes)
+    print("학습된 모델로 팩맨을 실행합니다.")
 
     # 게임 루프 실행
     score = 0
@@ -102,43 +117,44 @@ def start_game():
             if event.type == pygame.QUIT:  # 창 종료 이벤트 처리
                 done = True
 
-            # 수동 모드일 때 키보드 입력 처리
-            if not Config.AUTO_MODE:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT:
-                        pacman.changespeed(-30, 0)
-                    if event.key == pygame.K_RIGHT:
-                        pacman.changespeed(30, 0)
-                    if event.key == pygame.K_UP:
-                        pacman.changespeed(0, -30)
-                    if event.key == pygame.K_DOWN:
-                        pacman.changespeed(0, 30)
-
-                if event.type == pygame.KEYUP:
-                    if event.key == pygame.K_LEFT:
-                        pacman.changespeed(30, 0)
-                    if event.key == pygame.K_RIGHT:
-                        pacman.changespeed(-30, 0)
-                    if event.key == pygame.K_UP:
-                        pacman.changespeed(0, 30)
-                    if event.key == pygame.K_DOWN:
-                        pacman.changespeed(0, -30)
-
-        # 자동 모드 실행
-        if Config.AUTO_MODE:
-            for move in best_genes:
-                if move == 'UP':
-                    pacman.changespeed(0, -30)
-                elif move == 'DOWN':
-                    pacman.changespeed(0, 30)
-                elif move == 'LEFT':
-                    pacman.changespeed(-30, 0)
-                elif move == 'RIGHT':
-                    pacman.changespeed(30, 0)
-                pacman.update(wall_list, gate)
-
-        else:  # 수동 모드에서 팩맨 업데이트
-            pacman.update(wall_list, gate)
+        #     # 수동 모드일 때 키보드 입력 처리
+        #     if not Config.AUTO_MODE:
+        #         if event.type == pygame.KEYDOWN:
+        #             if event.key == pygame.K_LEFT:
+        #                 pacman.changespeed(-30, 0)
+        #             if event.key == pygame.K_RIGHT:
+        #                 pacman.changespeed(30, 0)
+        #             if event.key == pygame.K_UP:
+        #                 pacman.changespeed(0, -30)
+        #             if event.key == pygame.K_DOWN:
+        #                 pacman.changespeed(0, 30)
+        #
+        #         if event.type == pygame.KEYUP:
+        #             if event.key == pygame.K_LEFT:
+        #                 pacman.changespeed(30, 0)
+        #             if event.key == pygame.K_RIGHT:
+        #                 pacman.changespeed(-30, 0)
+        #             if event.key == pygame.K_UP:
+        #                 pacman.changespeed(0, 30)
+        #             if event.key == pygame.K_DOWN:
+        #                 pacman.changespeed(0, -30)
+        #
+        # # 자동 모드 실행
+        # if Config.AUTO_MODE:
+        #     for move in best_genes:
+        #         if move == 'UP':
+        #             pacman.changespeed(0, -30)
+        #         elif move == 'DOWN':
+        #             pacman.changespeed(0, 30)
+        #         elif move == 'LEFT':
+        #             pacman.changespeed(-30, 0)
+        #         elif move == 'RIGHT':
+        #             pacman.changespeed(30, 0)
+        #         pacman.update(wall_list, gate)
+        #
+        # else:  # 수동 모드에서 팩맨 업데이트
+        #     pacman.update(wall_list, gate)
+        #
 
         # 유령 업데이트
         for ghost_name, ghost in ghosts.items():
@@ -151,6 +167,36 @@ def start_game():
         # 팩맨과 블록(코인) 충돌 처리
         blocks_hit_list = pygame.sprite.spritecollide(pacman, block_list, True)
         score += len(blocks_hit_list)  # 점수 갱신
+
+        pacman = Sprites.Player(287, 439, "images/pacman.png")
+        pacman_x = 287
+        pacman_y = 439
+
+        if ghost_group:
+            closest_ghost = min(
+                ghost_group,
+                key=lambda ghost: abs(ghost.rect.left - pacman.rect.left) + abs(ghost.rect.top - pacman.rect.top)
+            )
+            ghost_x = (closest_ghost.rect.left - pacman.rect.left)
+            ghost_y = (closest_ghost.rect.top - pacman.rect.top)
+        else:
+            ghost_x, ghost_y = 0, 0
+
+        # 입력값 리스트 생성
+        inputs = np.array([pacman_x, pacman_y, ghost_x, ghost_y], dtype=np.float32).reshape(1, 4)
+        output = network.model_predict(inputs)  # 수정된 입력 전달
+        # 출력값을 움직임으로 변환
+        move = decode_output_to_move(output)
+        # 팩맨 이동
+        ga.move_pacman(pacman, move)
+
+        # 벽 충돌 및 화면 업데이트
+        if pygame.sprite.spritecollide(pacman, wall_list, False):
+            pacman.rect.left, pacman.rect.top = pacman.rect.left, pacman.rect.top
+
+        # 유령 충돌 시 게임 종료
+        if pygame.sprite.spritecollide(pacman, ghost_group, False):
+            break
 
         # 화면 업데이트
         screen.fill(Config.BLACK)

@@ -4,7 +4,7 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 YELLOW = (255, 255, 0)
-
+filename = "GAALGO.npy"
 # 프레임 속도
 FPS = 60
 AUTO_MODE = True;

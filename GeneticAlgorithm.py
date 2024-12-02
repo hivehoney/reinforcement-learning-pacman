@@ -176,7 +176,7 @@ class GeneticAlgorithm:
             text = font.render(f"Score: {score} | Time: {survival_time:.2f}", True, Config.RED)
             screen.blit(text, [10, 10])
             pygame.display.flip()
-            pygame.time.delay(5)
+            pygame.time.delay(1)
 
             if len(block_list) == 0:
                 break

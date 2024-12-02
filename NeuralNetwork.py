@@ -68,3 +68,14 @@ class NeuralNetwork:
             list: 신경망 출력값
         """
         return self.model.predict(np.array([inputs]))[0]
+
+    def model_predict(self, inputs):
+        """
+        입력값에 대해 신경망의 출력값을 계산
+        - 팩맨의 위치와 가장 가까운 유령의 상대적 위치를 입력으로 받아 방향을 출력
+        inputs (list): 입력값 리스트 ([팩맨 x좌표, 팩맨 y좌표, 유령 x좌표, 유령 y좌표])
+
+        Returns:
+            list: 신경망 출력값
+        """
+        return self.model.predict(inputs)[0]

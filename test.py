@@ -1,9 +1,11 @@
 import pygame
+import numpy as np
 
 import Setup
 import Sprites
 from Const import Config
 from GeneticAlgorithm import GeneticAlgorithm
+from NeuralNetwork import NeuralNetwork
 
 def start_game():
     pygame.init()
@@ -66,21 +68,36 @@ def start_game():
                 block_list.add(block)
                 all_sprites_list.add(block)
 
-    # 유전 알고리즘 실행
-    ga = GeneticAlgorithm(population_size=16, gene_length=100, mutation_rate=0.2, generations=3)
+    # 신경망 생성
+    input_size = 4  # 팩맨 좌표, 가장가까운 유령 좌표
+    output_size = 4   # UP, DOWN, LEFT, RIGHT
+    network = NeuralNetwork(input_size, output_size)
+
+    # 유전 알고리즘 생성
+    # ga = GeneticAlgorithm(
+    #     population_size=16,
+    #     mutation_rate=0.2,
+    #     generations=2,
+    #     network=network
+    # )
+
+    ga = GeneticAlgorithm(
+            population_size=16,
+            mutation_rate=0.2,
+            generations=10,
+            network=network
+        )
+
+    # 실행
     best_genes = ga.run(
-        wall_list,
-        block_list,
-        pacman,
-        ghost_group,  # 유령 그룹 전달
-        screen,
-        all_sprites_list,
-        gate,
-        font,
-        directions
+        wall_list, block_list, pacman, ghost_group, screen, all_sprites_list, gate, font, directions
     )
 
     print("Best Genes:", best_genes)
+
+    # 최적화된 유전자를 파일에 저장
+    np.save('GA1.npy', np.array(best_genes))
+    print("학습된 모델이 'GA.npy' 파일로 저장")
 
     score = 0
     total_blocks = len(block_list)

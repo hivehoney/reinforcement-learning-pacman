@@ -1,23 +1,29 @@
 import random
 import pygame
+import numpy as np
 
 import Sprites
 from Const import Config
 
 class GeneticAlgorithm:
-    def __init__(self, population_size, gene_length, mutation_rate, generations):
+    def __init__(self, population_size, mutation_rate, generations, network):
         self.population_size = population_size
-        self.gene_length = gene_length
+        self.gene_length = network.total_weights()  # 신경망의 총 가중치 개수를 기준으로 gene_length 설정
         self.mutation_rate = mutation_rate
         self.generations = generations
         self.population = []
+        self.network = network
 
     def initialize_population(self):
         """초기 유전자 생성"""
         self.population = [
-            [random.choice(['UP', 'DOWN', 'LEFT', 'RIGHT']) for _ in range(self.gene_length)]
+            [random.uniform(-1, 1) for _ in range(self.network.total_weights())]
             for _ in range(self.population_size)
         ]
+
+    def apply_weights_to_network(self, genes):
+        """유전자를 신경망 가중치로 적용"""
+        self.network.set_weights(genes)
 
     def reset_game_state(self, pacman, ghost_names, ghost_group, block_list, initial_positions, all_sprites_list):
         """팩맨, 유령, 블록(코인)의 상태를 초기화"""
@@ -54,7 +60,17 @@ class GeneticAlgorithm:
         elif move == 'RIGHT':
             pacman.rect.left += 30
 
+    def decode_output_to_move(self, output):
+        """신경망 출력값을 움직임으로 변환"""
+        moves = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+        print(f"Decoded output: {output}")  # 출력값 확인
+
+        return moves[np.argmax(output)]
+
     def fitness(self, genes, wall_list, block_list, pacman, ghost_group, directions, turns_steps, screen, all_sprites_list, gate, font):
+        """적합도 평가"""
+        self.network.set_weights(genes)  # 신경망 가중치 설정
+
         initial_positions = {
             'pacman': (287, 439),
             'ghosts': {
@@ -71,8 +87,28 @@ class GeneticAlgorithm:
         ghost_names = ["Blinky", "Pinky", "Inky", "Clyde"]
         start_time = pygame.time.get_ticks()
 
-        for move in genes:
+        for _ in range(self.gene_length):
+            # 이동 이전 위치 저장
             old_x, old_y = pacman.rect.left, pacman.rect.top
+
+            """ 신경망을 이용해 다음 행동 결정 """
+            # 가장 가까운 유령과의 상대적 좌표
+            if ghost_group:
+                closest_ghost = min(
+                    ghost_group,
+                    key=lambda ghost: abs(ghost.rect.left - pacman.rect.left) + abs(ghost.rect.top - pacman.rect.top)
+                )
+                ghost_x = closest_ghost.rect.left - pacman.rect.left
+                ghost_y = closest_ghost.rect.top - pacman.rect.top
+            else:
+                ghost_x, ghost_y = 0, 0  # 유령이 없는 경우 상대 좌표를 0으로 설정
+
+            # 입력값 리스트 생성
+            inputs = [old_x, old_y, ghost_x, ghost_y]
+
+            # 신경망 출력값 계산
+            output = self.network.predict(inputs)
+            move = self.decode_output_to_move(output)
             self.move_pacman(pacman, move)
 
             # 벽 충돌 처리
@@ -106,9 +142,8 @@ class GeneticAlgorithm:
             survival_time = (pygame.time.get_ticks() - start_time) / 1000
             text = font.render(f"Score: {score} | Time: {survival_time:.2f}", True, Config.RED)
             screen.blit(text, [10, 10])
-
             pygame.display.flip()
-            pygame.time.delay(100)
+            pygame.time.delay(10)
 
             if len(block_list) == 0:
                 break
@@ -119,7 +154,7 @@ class GeneticAlgorithm:
         )
 
         print(f"Survival Time: {survival_time:.2f} seconds, Score: {score}")
-        return score + survival_time
+        return score
 
     def select_parents(self, fitness_scores):
         """적합도가 높은 부모를 선택"""
@@ -137,7 +172,7 @@ class GeneticAlgorithm:
     def mutate(self, genes):
         """돌연변이 적용"""
         return [
-            random.choice(['UP', 'DOWN', 'LEFT', 'RIGHT']) if random.random() < self.mutation_rate else gene
+            gene + random.uniform(-0.1, 0.1) if random.random() < self.mutation_rate else gene
             for gene in genes
         ]
 
@@ -171,4 +206,5 @@ class GeneticAlgorithm:
         best_genes = max(self.population, key=lambda genes: self.fitness(
             genes, wall_list, block_list, pacman, ghost_group, directions, turns_steps, screen, all_sprites_list, gate, font
         ))
+
         return best_genes
